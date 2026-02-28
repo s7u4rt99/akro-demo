@@ -1,0 +1,178 @@
+# Akro Deep Research
+
+Multi-agent system for deep research: **Planner → Researcher → Enricher (URL fetch + main-content extraction) → Synthesizer → Critic**. Given a user query, the pipeline produces a structured report with summary, sections, sources, and optional confidence notes. The enricher fetches each result URL and replaces search snippets with full-page text to reduce snippet hallucination.
+
+## What you need
+
+### 1. OpenAI API key (required)
+
+- **Where:** [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- **Steps:** Sign in or create an account → **Create new secret key** → copy the key (starts with `sk-`).
+- **Set it:** Put the key in a `.env` file in the project root (see below). Do not commit `.env`.
+
+### 2. Tavily API key (required for web search)
+
+- **Where:** [https://tavily.com](https://tavily.com) — 1,000 free API credits/month.
+- **Set it:** Add `TAVILY_API_KEY=tvly-your-key` to your `.env` file.
+- All agents use the same OpenAI key for the LLM.
+
+## Setup
+
+```bash
+# Clone or cd into the project
+cd akro-agent
+
+# Create virtualenv (recommended)
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# Install (from project root)
+pip install -e .
+
+# Alternative without editable install:
+# pip install -r requirements.txt
+# Then run commands with: PYTHONPATH=src python cli.py "query"
+# Or: PYTHONPATH=src uvicorn api.main:app --reload
+
+# Copy env template and add your key
+cp .env.example .env
+# Edit .env and set OPENAI_API_KEY=sk-your-actual-key and TAVILY_API_KEY=tvly-your-key
+```
+
+Optional in `.env`:
+
+- `OPENAI_MODEL` — default `gpt-4o-mini`. Use `gpt-4o` for higher quality (more cost).
+
+## Run
+
+### Option A: HTTP API (FastAPI)
+
+```bash
+uvicorn api.main:app --reload --host 0.0.0.0
+```
+
+Then:
+
+```bash
+curl -X POST http://localhost:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What are the main causes of the 2024 chip shortage?"}'
+```
+
+Skip the Critic step:
+
+```bash
+curl -X POST http://localhost:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Your question", "use_critic": false}'
+```
+
+**Stream progress (SSE):** get live events (`plan`, `search_done`, `synthesis_done`, `report`, `done`) then the full report:
+
+```bash
+curl -N -X POST http://localhost:8000/research/stream \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What caused the 2024 chip shortage?"}'
+```
+
+### Option B: CLI
+
+```bash
+python cli.py "What are the main causes of the 2024 chip shortage?"
+```
+
+JSON output:
+
+```bash
+python cli.py "Your question" --json
+```
+
+Stdin:
+
+```bash
+echo "Your question" | python cli.py
+```
+
+**Export to PDF and/or PPTX:** run research and write files to a directory (default: current directory):
+
+```bash
+python cli.py "Your question" --pdf
+python cli.py "Your question" --pptx --output-dir ./out
+python cli.py "Your question" --pdf --pptx --output-dir ./out
+```
+
+**AI-designed slides:** use the slide designer LLM to build a deck with icons, layout variety, and optional charts (e.g. strength of evidence):
+
+```bash
+python cli.py "Your question" --pptx --ai-slides --output-dir ./out
+```
+
+With `--pdf --pptx`, both files use a sanitized version of the query as the base name (e.g. `What_caused_the_2024_chip_shortage.pdf`).
+
+## Project layout
+
+```
+akro-agent/
+├── README.md
+├── requirements.txt
+├── pyproject.toml
+├── .env.example          # Copy to .env and set OPENAI_API_KEY
+├── cli.py                # CLI entry
+├── api/
+│   └── main.py           # FastAPI app
+└── src/
+    └── akro_agent/
+        ├── __init__.py
+        ├── models.py     # Pydantic: Plan, Evidence, Report
+        ├── llm.py        # OpenAI client
+        ├── search.py     # Tavily search
+        ├── fetch.py      # URL fetch + main-content extraction (trafilatura)
+        ├── orchestration.py
+        ├── export/       # Export layer: PDF, PPTX
+        │   ├── __init__.py   # export_to_pdf, export_to_pptx, export_all
+        │   ├── pdf_writer.py
+        │   └── pptx_writer.py
+        └── agents/
+            ├── planner.py
+            ├── researcher.py
+            ├── synthesizer.py
+            └── critic.py
+```
+
+## Pipeline
+
+1. **Planner** — Turns the query into 3–6 sub-questions and a short approach summary.
+2. **Researcher** — Runs web search (Tavily) per sub-question and collects snippets + URLs.
+3. **Enricher** — Fetches each unique URL, extracts main content (trafilatura), and replaces snippet with full-page text when available so synthesis is grounded in real content (reduces snippet hallucination). Can be disabled with `use_enrichment: false` or `--no-enrichment`.
+4. **Synthesizer** — Builds a **scholarly research report**: methodology, literature review, findings (with claim → evidence → counter-arguments → strength of evidence → assessment per major claim), discussion, implications, conclusion, and references (bibliographic formatting).
+5. **Critic** — Adds a short note on methodology, evidence balance, confidence, and limitations.
+
+**Report structure:** Each report includes (1) Executive summary (2–3 paragraphs); (2) Methodology; (3) Literature review; (4) For each major claim: present claim, supporting evidence with examples, counter-arguments, evaluation of evidence strength, assessment; (5) Discussion; (6) Implications; (7) Conclusion; (8) References (formatted bibliography). Sections are 2–3 paragraphs with supporting and critical perspectives where the evidence allows.
+
+Output is JSON (API), plain text (CLI default), or exported files (PDF/PPTX).
+
+### Export layer
+
+- **PDF**: Full report content (query, summary, sections, confidence notes, sources) as a document.
+- **PPTX**: Presentation with title slide, summary slide, one slide per section, optional confidence slide, and sources slide.
+- **PPTX (AI-designed)**: Optional `--ai-slides` / `export_to_pptx_ai`: an LLM (slide designer agent) turns the report into a deck spec with icons (emoji per slide), short bullets, layout hints, and optional charts; then we render it to .pptx. Suited to content that benefits from visuals (e.g. strength-of-evidence bar chart).
+
+**API:** run research and download a file:
+
+```bash
+curl -X POST http://localhost:8000/research/export/pdf \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What caused the 2024 chip shortage?"}' \
+  -o report.pdf
+
+curl -X POST http://localhost:8000/research/export/pptx \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What caused the 2024 chip shortage?"}' \
+  -o report.pptx
+
+# AI-designed slides (icons, optional charts):
+curl -X POST http://localhost:8000/research/export/pptx/ai \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What caused the 2024 chip shortage?"}' \
+  -o report_ai.pptx
+```

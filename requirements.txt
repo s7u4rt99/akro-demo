@@ -1,0 +1,25 @@
+# LLM
+openai>=1.12.0
+
+# Web search (Tavily; set TAVILY_API_KEY in .env)
+tavily-python>=0.5.0
+
+# URL fetch + main-content extraction (reduce snippet hallucination)
+trafilatura>=1.6.0
+lxml_html_clean  # required by trafilatura's justext on newer lxml
+
+# API & server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Config & validation
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# HTTP client for search
+httpx>=0.26.0
+
+# Export layer (PDF, PPTX)
+reportlab>=4.0.0
+python-pptx>=0.6.21
