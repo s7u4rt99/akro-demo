@@ -1,6 +1,9 @@
 # LLM
 openai>=1.12.0
 
+# Graph orchestration (critic revision loop)
+langgraph>=0.2.0
+
 # Web search (Tavily; set TAVILY_API_KEY in .env)
 tavily-python>=0.5.0
 

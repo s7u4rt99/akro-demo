@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from akro_agent.llm import complete
 from akro_agent.models import ResearchEvidence, ResearchReport
 
@@ -68,10 +70,21 @@ Write in formal, scholarly tone. Use only the provided evidence; do not invent f
 def run_synthesizer(
     query: str,
     evidence_list: list[ResearchEvidence],
+    revision_feedback: Optional[str] = None,
+    previous_report: Optional[ResearchReport] = None,
 ) -> ResearchReport:
-    """Synthesize evidence into a structured research report."""
+    """Synthesize evidence into a structured research report. Optionally revise using critic feedback."""
     evidence_text = _evidence_to_text(evidence_list)
     user_prompt = f"Original query: {query}\n\nCollected evidence:\n{evidence_text}"
+    if revision_feedback and revision_feedback.strip():
+        rev_instruction = (
+            "The following revision was requested by the reviewer. Produce a revised report that addresses these points. "
+            "Keep the same structure and evidence; improve only where requested.\n\n"
+            f"Revision request:\n{revision_feedback.strip()}\n\n"
+        )
+        if previous_report:
+            rev_instruction += f"Current report (for reference):\n{previous_report.model_dump_json(indent=2)}\n\n"
+        user_prompt = rev_instruction + "---\n\nEvidence (unchanged):\n" + evidence_text
     out = complete(SYSTEM, user_prompt, response_format=ResearchReport, temperature=0.3)
     assert isinstance(out, ResearchReport)
     out.query = query

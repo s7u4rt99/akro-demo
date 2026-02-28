@@ -53,6 +53,14 @@ class ResearchReport(BaseModel):
     )
 
 
+class CriticVerdict(BaseModel):
+    """Critic output: accept report or request revision with feedback."""
+
+    verdict: str = Field(..., description="One of: accept, revise")
+    feedback: str = Field("", description="Revision instructions for the synthesizer (when verdict is 'revise')")
+    confidence_notes: str = Field("", description="Paragraph for report.confidence_notes (used when accepting)")
+
+
 # ---- Slide designer (AI-generated deck spec) ----
 
 

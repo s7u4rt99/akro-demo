@@ -145,7 +145,7 @@ akro-agent/
 2. **Researcher** — Runs web search (Tavily) per sub-question and collects snippets + URLs.
 3. **Enricher** — Fetches each unique URL, extracts main content (trafilatura), and replaces snippet with full-page text when available so synthesis is grounded in real content (reduces snippet hallucination). Can be disabled with `use_enrichment: false` or `--no-enrichment`.
 4. **Synthesizer** — Builds a **scholarly research report**: methodology, literature review, findings (with claim → evidence → counter-arguments → strength of evidence → assessment per major claim), discussion, implications, conclusion, and references (bibliographic formatting).
-5. **Critic** — Adds a short note on methodology, evidence balance, confidence, and limitations.
+5. **Critic** — Reviews the report and returns a verdict: **accept** (add confidence notes and finish) or **revise** (with actionable feedback). The pipeline is orchestrated with **LangGraph**: if the critic says "revise", the graph loops back to the Synthesizer (up to 2 revisions) so the report can be improved before finishing.
 
 **Report structure:** Each report includes (1) Executive summary (2–3 paragraphs); (2) Methodology; (3) Literature review; (4) For each major claim: present claim, supporting evidence with examples, counter-arguments, evaluation of evidence strength, assessment; (5) Discussion; (6) Implications; (7) Conclusion; (8) References (formatted bibliography). Sections are 2–3 paragraphs with supporting and critical perspectives where the evidence allows.
 

@@ -1,16 +1,12 @@
-"""Orchestrator: runs the full research pipeline."""
+"""Orchestrator: runs the research pipeline via LangGraph (with critic revision loop)."""
 
 from __future__ import annotations
 
 import json
 from typing import Iterator
 
-from akro_agent.agents.planner import run_planner
-from akro_agent.agents.researcher import run_researcher
-from akro_agent.agents.synthesizer import run_synthesizer
-from akro_agent.agents.critic import run_critic
+from akro_agent.graph import get_research_graph
 from akro_agent.models import ResearchReport
-from akro_agent.fetch import enrich_evidence
 
 
 def run_research(
@@ -20,27 +16,18 @@ def run_research(
     use_enrichment: bool = True,
 ) -> ResearchReport:
     """
-    Run the full pipeline: Planner -> Researcher -> [Enricher: fetch URLs + extract] -> Synthesizer -> [Critic].
-    Enrichment fetches each result URL and replaces snippet with full-page content to reduce snippet hallucination.
+    Run the full pipeline via LangGraph: Planner -> Researcher -> Enricher -> Synthesizer -> Critic.
+    If the critic returns "revise", the graph loops back to the Synthesizer (up to MAX_REVISIONS).
     """
-    print("running planner\n")
-    plan = run_planner(query)
-    print(f"planner results: {plan}\n")
-    print("running researcher")
-    evidence_list = run_researcher(plan)
-    print(f"researcher results: {evidence_list}\n")
-    if use_enrichment:
-        print("running enrichment")
-        evidence_list = enrich_evidence(evidence_list)
-        print(f"enrichment results: {evidence_list}\n")
-    print("running synthesizer")
-    report = run_synthesizer(query, evidence_list)
-    print(f"synthesizer results: {report}\n")
-    if use_critic:
-        print("running critic")
-        report = run_critic(report)
-        print(f"critic report: {report}\n")
-    return report
+    graph = get_research_graph()
+    initial: dict = {
+        "query": query,
+        "use_enrichment": use_enrichment,
+        "use_critic": use_critic,
+        "synthesis_iteration": 0,
+    }
+    final = graph.invoke(initial)
+    return final["report"]
 
 
 def run_research_stream(
@@ -50,23 +37,36 @@ def run_research_stream(
     use_enrichment: bool = True,
 ) -> Iterator[tuple[str, str]]:
     """
-    Run the pipeline and yield (event_type, json_data) for SSE.
+    Run the pipeline via LangGraph and yield (event_type, json_data) for SSE.
     Events: plan, search_done, enrich_done, synthesis_done, critic_done, report, done.
+    On revision loop, synthesis_done and critic_done may repeat.
     """
-    plan = run_planner(query)
-    yield "plan", plan.model_dump_json()
-    evidence_list = run_researcher(plan)
-    yield "search_done", json.dumps({
-        "sub_queries": len(evidence_list),
-        "total_chunks": sum(len(e.chunks) for e in evidence_list),
-    })
-    if use_enrichment:
-        evidence_list = enrich_evidence(evidence_list)
-        yield "enrich_done", json.dumps({"chunks": sum(len(e.chunks) for e in evidence_list)})
-    report = run_synthesizer(query, evidence_list)
-    yield "synthesis_done", "{}"
-    if use_critic:
-        report = run_critic(report)
-        yield "critic_done", "{}"
-    yield "report", report.model_dump_json()
+    graph = get_research_graph()
+    initial: dict = {
+        "query": query,
+        "use_enrichment": use_enrichment,
+        "use_critic": use_critic,
+        "synthesis_iteration": 0,
+    }
+    state: dict = dict(initial)
+    for node_name, state_update in graph.stream(initial):
+        state.update(state_update)
+        if node_name == "planner" and "plan" in state_update:
+            yield "plan", state_update["plan"].model_dump_json()
+        elif node_name == "researcher" and "evidence_list" in state_update:
+            ev = state_update["evidence_list"]
+            yield "search_done", json.dumps({
+                "sub_queries": len(ev),
+                "total_chunks": sum(len(e.chunks) for e in ev),
+            })
+        elif node_name == "enricher" and "evidence_list" in state_update:
+            ev = state_update["evidence_list"]
+            yield "enrich_done", json.dumps({"chunks": sum(len(e.chunks) for e in ev)})
+        elif node_name == "synthesizer" and "report" in state_update:
+            yield "synthesis_done", json.dumps({"iteration": state_update.get("synthesis_iteration", 0)})
+        elif node_name == "critic" and "report" in state_update:
+            yield "critic_done", json.dumps({
+                "verdict": state_update.get("critic_verdict", "accept"),
+            })
+    yield "report", state["report"].model_dump_json()
     yield "done", "{}"
