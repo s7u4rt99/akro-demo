@@ -5,7 +5,6 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
@@ -46,13 +45,6 @@ def write_pdf(report: ResearchReport, path: str | Path) -> None:
         spaceAfter=8,
     )
     body_style = styles["Normal"]
-    small_style = ParagraphStyle(
-        "Small",
-        parent=styles["Normal"],
-        fontSize=9,
-        textColor=colors.gray,
-        spaceAfter=6,
-    )
     ref_style = ParagraphStyle(
         "References",
         parent=styles["Normal"],
@@ -77,9 +69,19 @@ def write_pdf(report: ResearchReport, path: str | Path) -> None:
     for sec in report.sections:
         title = sec.get("title") or "Section"
         content = sec.get("content") or ""
-        flowables.append(Paragraph(_escape(title), heading_style))
-        style = ref_style if title.strip().lower() == "references" else body_style
-        flowables.append(Paragraph(_escape(content), style))
+        title_lower = title.strip().lower()
+        # Use top-level report.sources for References/Sources (same as frontend) so refs always appear
+        if title_lower == "references" or title_lower == "sources":
+            flowables.append(Paragraph(_escape(title), heading_style))
+            if report.sources:
+                for src in report.sources:
+                    flowables.append(Paragraph(_escape(src), ref_style))
+                    flowables.append(Spacer(1, 0.04 * inch))
+            elif content:
+                flowables.append(Paragraph(_escape(content), ref_style))
+        else:
+            flowables.append(Paragraph(_escape(title), heading_style))
+            flowables.append(Paragraph(_escape(content), body_style))
         flowables.append(Spacer(1, 0.1 * inch))
 
     # Confidence notes
@@ -87,12 +89,5 @@ def write_pdf(report: ResearchReport, path: str | Path) -> None:
         flowables.append(Paragraph("Confidence & limitations", heading_style))
         flowables.append(Paragraph(_escape(report.confidence_notes), body_style))
         flowables.append(Spacer(1, 0.15 * inch))
-
-    # Sources (each on its own line with spacing)
-    if report.sources:
-        flowables.append(Paragraph("Sources", heading_style))
-        for src in report.sources:
-            flowables.append(Paragraph(_escape(src), small_style))
-            flowables.append(Spacer(1, 0.04 * inch))
 
     doc.build(flowables)

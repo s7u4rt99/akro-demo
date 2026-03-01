@@ -107,6 +107,29 @@ def _one_point_per_slide(text: str) -> list[str]:
     return points if points else [""]
 
 
+def _pack_lines_into_slides(lines: list[str], max_chars_per_slide: int = 1800) -> list[str]:
+    """
+    Pack multiple lines onto slides without truncation. Each slide gets as many
+    lines as fit within max_chars_per_slide; no line is split.
+    """
+    if not lines:
+        return [""]
+    slides = []
+    current: list[str] = []
+    current_len = 0
+    for line in lines:
+        line_len = len(line) + 1  # +1 for newline
+        if current and current_len + line_len > max_chars_per_slide:
+            slides.append("\n".join(current))
+            current = []
+            current_len = 0
+        current.append(line)
+        current_len += line_len
+    if current:
+        slides.append("\n".join(current))
+    return slides
+
+
 def write_pptx(report: ResearchReport, path: str | Path) -> None:
     """Write report as a .pptx presentation with clean, presentation-ready styling."""
     path = Path(path)
@@ -152,10 +175,34 @@ def write_pptx(report: ResearchReport, path: str | Path) -> None:
         p.line_spacing = 1.2
         _set_body_style(tf, font_size=15)
 
-    # ----- Section slides: one slide per point/bullet (no truncation) -----
+    # ----- Section slides -----
     for sec in report.sections:
         title = sec.get("title") or "Section"
         content = sec.get("content") or ""
+        title_lower = title.strip().lower()
+        # References/Sources: pack multiple per slide (no truncation)
+        if title_lower == "references" or title_lower == "sources":
+            lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+            if report.sources:
+                lines = list(report.sources)
+            if not lines:
+                continue
+            packed = _pack_lines_into_slides(lines)
+            for idx, block in enumerate(packed):
+                slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
+                slide_title = title if len(packed) == 1 else f"{title} ({idx + 1}/{len(packed)})"
+                slide.shapes.title.text = slide_title[:75] if len(slide_title) > 75 else slide_title
+                _set_title_style(slide.shapes.title, font_size=22)
+                _add_accent_bar(slide)
+                tf = slide.placeholders[1].text_frame
+                p = tf.paragraphs[0]
+                p.text = block
+                p.font.size = Pt(10)
+                p.font.color.rgb = COLOR_SUBTITLE
+                p.space_after = Pt(6)
+                _set_body_style(tf, font_size=10)
+            continue
+        # Other sections: one slide per point/bullet (no truncation)
         points = _one_point_per_slide(content)
         for idx, point in enumerate(points):
             slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
@@ -187,21 +234,6 @@ def write_pptx(report: ResearchReport, path: str | Path) -> None:
             p.font.color.rgb = COLOR_BODY
             p.space_after = Pt(8)
             _set_body_style(tf, font_size=13)
-
-    # ----- Sources: one slide per source (no truncation) -----
-    if report.sources:
-        for idx, src in enumerate(report.sources):
-            slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
-            slide.shapes.title.text = "Sources" if len(report.sources) == 1 else f"Sources ({idx + 1}/{len(report.sources)})"
-            _set_title_style(slide.shapes.title, font_size=22)
-            _add_accent_bar(slide)
-            tf = slide.placeholders[1].text_frame
-            p = tf.paragraphs[0]
-            p.text = src
-            p.font.size = Pt(10)
-            p.font.color.rgb = COLOR_SUBTITLE
-            p.word_wrap = True
-            _set_body_style(tf, font_size=10)
 
     prs.save(str(path))
 

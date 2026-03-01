@@ -26,3 +26,4 @@ httpx>=0.26.0
 # Export layer (PDF, PPTX)
 reportlab>=4.0.0
 python-pptx>=0.6.21
+pypdf>=4.0.0

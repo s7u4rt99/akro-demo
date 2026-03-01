@@ -60,7 +60,7 @@ function PptxOutlinePreview({ report, query }: { report: string; query: string }
         </div>
       </div>
       <p className="absolute top-9 left-3 right-3 text-[10px] text-muted-foreground z-10">
-        Browsers cannot display .pptx slides. Download or open the file to view the full presentation.
+        Browsers cannot display .pptx slides. Download the file to view the full presentation.
       </p>
       <div className="mt-16 p-4 flex flex-col gap-3 h-full overflow-hidden">
         {/* Title slide */}
@@ -128,15 +128,6 @@ export function DocumentPreview({ query, report, pdfBase64, pptxBase64 }: Docume
     }
   }
 
-  function handleOpenPptx() {
-    if (!pptxBase64) return
-    const mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    const blob = base64ToBlob(pptxBase64, mime)
-    const url = URL.createObjectURL(blob)
-    window.open(url, "_blank", "noopener")
-    setTimeout(() => URL.revokeObjectURL(url), 10000)
-  }
-
   const pdfReady = !!pdfBase64
   const pptxReady = !!pptxBase64
   const pdfDataUrl = pdfBase64 ? `data:application/pdf;base64,${pdfBase64}` : null
@@ -181,27 +172,18 @@ export function DocumentPreview({ query, report, pdfBase64, pptxBase64 }: Docume
 
         <div className="flex flex-col gap-3">
           <PptxOutlinePreview report={report} query={query} />
-          <div className="flex gap-2">
-            <button
-              onClick={handleOpenPptx}
-              disabled={!pptxReady}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Open file
-            </button>
-            <button
-              onClick={() => handleDownload("pptx")}
-              disabled={!pptxReady || downloadingPptx}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {downloadingPptx ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              Download PPTX
-            </button>
-          </div>
+          <button
+            onClick={() => handleDownload("pptx")}
+            disabled={!pptxReady || downloadingPptx}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed w-full"
+          >
+            {downloadingPptx ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Download PPTX
+          </button>
         </div>
       </div>
     </div>
