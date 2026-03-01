@@ -78,9 +78,9 @@ You are assessed on:
 - **Tavily** with `search_depth` and retries (exponential backoff) for robust search.
 - **Enricher:** fetch each result URL, extract main content with trafilatura, replace snippet with full-page text when available. Reduces snippet hallucination; can be disabled for speed.
 - **SSE streaming** (`POST /research/stream`): progress events (plan, search_done, enrich_done, synthesis_done, critic_done, report, done) so a UI can show a live pipeline and then the full report.
-- **PDF and PPTX export:** full report as PDF; PPTX with one slide per point/source; optional **AI-designed slides** (slide designer agent for icons, layout, optional charts).
+- **PDF and PPTX export:** full report as PDF; PPTX with one slide per point/source.
 - **Chat:** `POST /chat` for follow-up Q&A, with optional PDF context (uploaded or last report) for grounded answers.
-- **Multiple entry points:** FastAPI (including `/docs`), CLI (`python cli.py "query"` with `--pdf`, `--pptx`, `--ai-slides`), and Next.js frontend with preview and download.
+- **Multiple entry points:** FastAPI (including `/docs`), CLI (`python cli.py "query"` with `--pdf`, `--pptx`), and Next.js frontend with preview and download.
 
 **Suggested add-ons to propose (or implement later):**
 
@@ -111,6 +111,6 @@ You are assessed on:
 - **Correctness:** Strong pipeline design and grounding; minor gaps (fail-open search, loose section schema).
 - **Modularity/clean code:** Clear separation of agents, orchestration, and export; single entry points and shared code paths.
 - **Testability:** Design supports tests; no tests in repo yet — be ready to describe a concrete pytest plan.
-- **Add-ons:** Several already shipped (Enricher, SSE, PDF/PPTX, AI slides, chat); good list of next steps (caching, parallel search, guards, observability).
+- **Add-ons:** Several already shipped (Enricher, SSE, PDF/PPTX, chat); good list of next steps (caching, parallel search, guards, observability).
 
 Use this with [server/CRITIQUE_AND_ADDONS.md](server/CRITIQUE_AND_ADDONS.md) for deeper technical details and curl examples (e.g. SSE demo).

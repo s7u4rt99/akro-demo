@@ -82,7 +82,6 @@ curl -X POST http://localhost:8000/research \
 | `use_enrichment`  | bool   | `true`  | Fetch URLs and use full-page content (reduces snippet hallucination) |
 | `include_pdf`     | bool   | `false` | Include the report as base64-encoded PDF in the response (`pdf_base64`) |
 | `include_pptx`    | bool   | `false` | Include the report as base64-encoded PPTX in the response (`pptx_base64`) |
-| `use_ai_slides`   | bool   | `false` | When `include_pptx` is true, use AI-designed slides (icons, layout); otherwise standard PPTX |
 
 **Examples with flags:**
 
@@ -100,14 +99,6 @@ Get the report plus PDF and PPTX in the same response (decode `pdf_base64` / `pp
 curl -X POST http://localhost:8000/research \
   -H "Content-Type: application/json" \
   -d '{"query": "What caused the 2024 chip shortage?", "include_pdf": true, "include_pptx": true}'
-```
-
-Report + PPTX only, with AI-designed slides:
-
-```bash
-curl -X POST http://localhost:8000/research \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What caused the 2024 chip shortage?", "include_pptx": true, "use_ai_slides": true}'
 ```
 
 Disable URL enrichment (faster, but synthesis uses search snippets only):
@@ -150,12 +141,6 @@ echo "Your question" | python cli.py
 python cli.py "Your question" --pdf
 python cli.py "Your question" --pptx --output-dir ./out
 python cli.py "Your question" --pdf --pptx --output-dir ./out
-```
-
-**AI-designed slides:** use the slide designer LLM to build a deck with icons, layout variety, and optional charts (e.g. strength of evidence):
-
-```bash
-python cli.py "Your question" --pptx --ai-slides --output-dir ./out
 ```
 
 With `--pdf --pptx`, both files use a sanitized version of the query as the base name (e.g. `What_caused_the_2024_chip_shortage.pdf`).
@@ -206,7 +191,6 @@ Output is JSON (API), plain text (CLI default), or exported files (PDF/PPTX).
 
 - **PDF**: Full report content (query, summary, sections, confidence notes, sources) as a document.
 - **PPTX**: Presentation with title slide, then **one slide per point or bullet** for summary, each section, and confidence (no truncation); then one slide per source.
-- **PPTX (AI-designed)**: Optional `--ai-slides` / `export_to_pptx_ai`: an LLM (slide designer agent) turns the report into a deck spec with icons (emoji per slide), short bullets, layout hints, and optional charts; then we render it to .pptx. Suited to content that benefits from visuals (e.g. strength-of-evidence bar chart).
 
 **API:** run research and download a file:
 
@@ -220,10 +204,4 @@ curl -X POST http://localhost:8000/research/export/pptx \
   -H "Content-Type: application/json" \
   -d '{"query": "What caused the 2024 chip shortage?"}' \
   -o report.pptx
-
-# AI-designed slides (icons, optional charts):
-curl -X POST http://localhost:8000/research/export/pptx/ai \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What caused the 2024 chip shortage?"}' \
-  -o report_ai.pptx
 ```
