@@ -61,12 +61,49 @@ curl -X POST http://localhost:8000/research \
   -d '{"query": "What are the main causes of the 2024 chip shortage?"}'
 ```
 
+**Request body for `POST /research`:**
+
+| Field             | Type   | Default | Description |
+|-------------------|--------|---------|-------------|
+| `query`           | string | required | Research question |
+| `use_critic`      | bool   | `true`  | Run the Critic agent (accept/revise loop) |
+| `use_enrichment`  | bool   | `true`  | Fetch URLs and use full-page content (reduces snippet hallucination) |
+| `include_pdf`     | bool   | `false` | Include the report as base64-encoded PDF in the response (`pdf_base64`) |
+| `include_pptx`    | bool   | `false` | Include the report as base64-encoded PPTX in the response (`pptx_base64`) |
+| `use_ai_slides`   | bool   | `false` | When `include_pptx` is true, use AI-designed slides (icons, layout); otherwise standard PPTX |
+
+**Examples with flags:**
+
 Skip the Critic step:
 
 ```bash
 curl -X POST http://localhost:8000/research \
   -H "Content-Type: application/json" \
   -d '{"query": "Your question", "use_critic": false}'
+```
+
+Get the report plus PDF and PPTX in the same response (decode `pdf_base64` / `pptx_base64` from base64 to get the files):
+
+```bash
+curl -X POST http://localhost:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What caused the 2024 chip shortage?", "include_pdf": true, "include_pptx": true}'
+```
+
+Report + PPTX only, with AI-designed slides:
+
+```bash
+curl -X POST http://localhost:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What caused the 2024 chip shortage?", "include_pptx": true, "use_ai_slides": true}'
+```
+
+Disable URL enrichment (faster, but synthesis uses search snippets only):
+
+```bash
+curl -X POST http://localhost:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Your question", "use_enrichment": false}'
 ```
 
 **Stream progress (SSE):** get live events (`plan`, `search_done`, `synthesis_done`, `report`, `done`) then the full report:
