@@ -67,7 +67,9 @@ Required sections, in this order:
      "Author or Site. Title or description. URL. [Accessed/retrieved if relevant.]"
    - List every URL from "sources" in this section. Put each reference on its own line: use a single newline between references so each one appears on a separate line. Do not run references together in one paragraph.
 
-Write in formal, scholarly tone. Use only the provided evidence; do not invent facts. Cite sources by URL or by describing the source in the text. Be thorough: each section should feel complete with examples and balance between supporting and critical perspectives."""
+Write in formal, scholarly tone. Use only the provided evidence; do not invent facts. Cite sources by URL or by describing the source in the text. Be thorough: each section should feel complete with examples and balance between supporting and critical perspectives.
+
+If the input includes a block labeled \"[Context from uploaded PDF]\", treat it as background only. Use it to inform your synthesis but do not copy that label or long verbatim excerpts from it into the report. The reader must not see raw uploaded-document dumps; only your synthesized analysis and citations."""
 
 
 def run_synthesizer(
