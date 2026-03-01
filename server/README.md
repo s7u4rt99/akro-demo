@@ -1,6 +1,10 @@
-# Akro Deep Research
+# Akro Deep Research (Server)
 
 Multi-agent system for deep research: **Planner → Researcher → Enricher (URL fetch + main-content extraction) → Synthesizer → Critic**. Given a user query, the pipeline produces a structured report with summary, sections, sources, and optional confidence notes. The enricher fetches each result URL and replaces search snippets with full-page text to reduce snippet hallucination.
+
+**Prerequisites:** Python 3.9+ (3.10+ recommended). All commands below assume you are in the `server/` directory.
+
+---
 
 ## What you need
 
@@ -50,10 +54,18 @@ Optional in `.env`:
 ### Option A: HTTP API (FastAPI)
 
 ```bash
-uvicorn api.main:app --reload --host 0.0.0.0
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Then:
+- **API base:** [http://localhost:8000](http://localhost:8000)
+- **Interactive docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Health check:** `GET /health` — use this to verify the server is up before calling `/research`.
+
+```bash
+curl http://localhost:8000/health
+```
+
+Then run research:
 
 ```bash
 curl -X POST http://localhost:8000/research \
