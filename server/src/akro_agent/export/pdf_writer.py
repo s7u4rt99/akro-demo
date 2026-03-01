@@ -88,10 +88,11 @@ def write_pdf(report: ResearchReport, path: str | Path) -> None:
         flowables.append(Paragraph(_escape(report.confidence_notes), body_style))
         flowables.append(Spacer(1, 0.15 * inch))
 
-    # Sources
+    # Sources (each on its own line with spacing)
     if report.sources:
         flowables.append(Paragraph("Sources", heading_style))
         for src in report.sources:
             flowables.append(Paragraph(_escape(src), small_style))
+            flowables.append(Spacer(1, 0.04 * inch))
 
     doc.build(flowables)

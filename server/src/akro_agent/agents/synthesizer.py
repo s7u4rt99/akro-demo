@@ -65,7 +65,7 @@ Required sections, in this order:
 7. **References**
    - Format as a bibliography. For each cited source use a consistent format, e.g.:
      "Author or Site. Title or description. URL. [Accessed/retrieved if relevant.]"
-   - List every URL from "sources" in this section. Use the "content" field to write the formatted references (one per line or numbered).
+   - List every URL from "sources" in this section. Put each reference on its own line: use a single newline between references so each one appears on a separate line. Do not run references together in one paragraph.
 
 Write in formal, scholarly tone. Use only the provided evidence; do not invent facts. Cite sources by URL or by describing the source in the text. Be thorough: each section should feel complete with examples and balance between supporting and critical perspectives."""
 

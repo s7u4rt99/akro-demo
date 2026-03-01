@@ -6,10 +6,13 @@ import { ResearchLoading } from "@/components/research-loading"
 import { ResearchReport } from "@/components/research-report"
 import { DocumentPreview } from "@/components/document-preview"
 import { ResearchChat, type ChatMessage } from "@/components/research-chat"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { ArrowLeft, PanelRightOpen, PanelRightClose } from "lucide-react"
 import Link from "next/link"
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+
+const RESEARCH_CACHE_KEY = "akro_research"
 
 type ResearchPhase =
   | "analyzing"
@@ -28,16 +31,62 @@ function buildReportMarkdown(data: {
   let md = `# ${data.query}\n\n## Executive Summary\n\n${data.summary}\n\n`
   for (const sec of data.sections || []) {
     const title = sec.title || "Section"
-    const content = (sec.content || "").trim()
+    let content = (sec.content || "").trim()
+    // References/Sources: use top-level sources so each URL is on its own line (canonical list)
+    if (title.toLowerCase().includes("reference") || title.toLowerCase().includes("source")) {
+      const urls = (data.sources || []).length ? data.sources : content.split(/\r?\n+/).map((l) => l.trim()).filter(Boolean)
+      content = urls.map((url) => `- ${url}`).join("\n")
+    }
     md += `## ${title}\n\n${content}\n\n`
   }
   if (data.confidence_notes) {
     md += `## Confidence notes\n\n${data.confidence_notes}\n\n`
   }
-  if (data.sources?.length) {
-    md += `## References\n\n${data.sources.map((s) => `- ${s}`).join("\n")}\n`
-  }
   return md
+}
+
+interface ResearchCache {
+  query: string
+  report: string
+  pdfBase64: string | null
+  pptxBase64: string | null
+  chatMessages: ChatMessage[]
+}
+
+function getCacheKey(q: string) {
+  return `${RESEARCH_CACHE_KEY}:${encodeURIComponent(q)}`
+}
+
+function loadResearchCache(query: string): ResearchCache | null {
+  if (typeof window === "undefined" || !query) return null
+  try {
+    const raw = sessionStorage.getItem(getCacheKey(query))
+    if (!raw) return null
+    const data = JSON.parse(raw) as ResearchCache
+    if (data?.query && data?.report) return data
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+function saveResearchCache(cache: ResearchCache) {
+  if (typeof window === "undefined" || !cache.query) return
+  try {
+    sessionStorage.setItem(getCacheKey(cache.query), JSON.stringify(cache))
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "QuotaExceededError") {
+      try {
+        sessionStorage.setItem(getCacheKey(cache.query), JSON.stringify({
+          ...cache,
+          pdfBase64: null,
+          pptxBase64: null,
+        }))
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
 
 export function ResearchView() {
@@ -53,8 +102,9 @@ export function ResearchView() {
   const [progress, setProgress] = useState(0)
   const fetchedRef = useRef(false)
 
-  // New research topic = fresh chat
+  // When query changes, reset so we either restore from cache or run research for the new query
   useEffect(() => {
+    fetchedRef.current = false
     setChatMessages([])
   }, [query])
 
@@ -115,6 +165,13 @@ export function ResearchView() {
       setPptxBase64(data.pptx_base64 || null)
       setPhase("complete")
       setIsComplete(true)
+      saveResearchCache({
+        query,
+        report: reportMd,
+        pdfBase64: data.pdf_base64 || null,
+        pptxBase64: data.pptx_base64 || null,
+        chatMessages: [],
+      })
     } catch (err) {
       console.error("Research error:", err)
       clearInterval(progressInterval)
@@ -128,11 +185,39 @@ export function ResearchView() {
     }
   }, [query])
 
+  // Restore from cache on load, or run research
   useEffect(() => {
     if (fetchedRef.current) return
+    if (!query) return
+
+    const cached = loadResearchCache(query)
+    if (cached) {
+      fetchedRef.current = true
+      setReport(cached.report)
+      setPdfBase64(cached.pdfBase64)
+      setPptxBase64(cached.pptxBase64)
+      setChatMessages(cached.chatMessages ?? [])
+      setPhase("complete")
+      setProgress(100)
+      setIsComplete(true)
+      return
+    }
+
     fetchedRef.current = true
     startResearch()
-  }, [startResearch])
+  }, [query, startResearch])
+
+  // Persist cache when report or chat changes (so refresh keeps chat)
+  useEffect(() => {
+    if (!isComplete || !query || !report) return
+    saveResearchCache({
+      query,
+      report,
+      pdfBase64,
+      pptxBase64,
+      chatMessages,
+    })
+  }, [isComplete, query, report, pdfBase64, pptxBase64, chatMessages])
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -152,6 +237,7 @@ export function ResearchView() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {isComplete && (
               <button
                 onClick={() => setChatOpen(!chatOpen)}
