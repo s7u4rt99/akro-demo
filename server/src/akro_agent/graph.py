@@ -74,7 +74,7 @@ def _node_synthesizer(state: ResearchState) -> dict:
 def _node_critic(state: ResearchState) -> dict:
     print("running critic\n")
     report, verdict = run_critic(state["report"])
-    print(f"critic results: {report}\n")
+    print(f"critic verdict: {verdict}\n")
     return {
         "report": report,
         "critic_verdict": verdict.verdict,

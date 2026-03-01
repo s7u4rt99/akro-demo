@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
+import json
+from typing import Any, Optional
+
+from pydantic import ValidationError
 
 from akro_agent.llm import complete
 from akro_agent.models import ResearchEvidence, ResearchReport
@@ -85,7 +88,30 @@ def run_synthesizer(
         if previous_report:
             rev_instruction += f"Current report (for reference):\n{previous_report.model_dump_json(indent=2)}\n\n"
         user_prompt = rev_instruction + "---\n\nEvidence (unchanged):\n" + evidence_text
-    out = complete(SYSTEM, user_prompt, response_format=ResearchReport, temperature=0.3)
-    assert isinstance(out, ResearchReport)
+    # Get raw JSON so we can repair missing fields (LLM sometimes omits query/summary)
+    system = SYSTEM + "\n\nRespond with a single JSON object with keys: query, summary, sections, sources, confidence_notes (no markdown, no code fence)."
+    raw = complete(system, user_prompt, response_format=None, temperature=0.3)
+    content = raw if isinstance(raw, str) else str(raw)
+    # Strip markdown code fence if present
+    if "```" in content:
+        for start in ("```json", "```"):
+            if start in content:
+                content = content.split(start, 1)[-1].rsplit("```", 1)[0].strip()
+    data = json.loads(content)
+    if not isinstance(data, dict):
+        data = {"query": query, "summary": "", "sections": [], "sources": [], "confidence_notes": ""}
+    # Inject known query and defaults so Pydantic validation succeeds even when LLM omits fields
+    data["query"] = data.get("query") or query
+    data["summary"] = data.get("summary") or ""
+    data["sections"] = data.get("sections") if isinstance(data.get("sections"), list) else []
+    data["sources"] = data.get("sources") if isinstance(data.get("sources"), list) else []
+    data["confidence_notes"] = data.get("confidence_notes") or ""
+    try:
+        out = ResearchReport.model_validate(data)
+    except ValidationError:
+        # Coerce any remaining bad types (e.g. section items must be dicts)
+        data["sections"] = [x if isinstance(x, dict) else {} for x in data["sections"]]
+        data["sources"] = [str(x) for x in data["sources"]]
+        out = ResearchReport.model_validate(data)
     out.query = query
     return out

@@ -18,15 +18,17 @@ Multi-agent system for deep research: **Planner → Researcher → Enricher (URL
 
 ## Setup
 
-```bash
-# Clone or cd into the project
-cd akro-agent
+**All commands below must be run from the `server/` directory** (this is the project root for the Python package).
 
-# Create virtualenv (recommended)
+```bash
+# Go into the server directory (project root)
+cd server
+
+# Use system Python to create the venv (do not run this while another venv is active)
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
-# Install (from project root)
+# Install the package (from server directory)
 pip install -e .
 
 # Alternative without editable install:
@@ -34,7 +36,7 @@ pip install -e .
 # Then run commands with: PYTHONPATH=src python cli.py "query"
 # Or: PYTHONPATH=src uvicorn api.main:app --reload
 
-# Copy env template and add your key
+# Copy env template and add your keys (in server/)
 cp .env.example .env
 # Edit .env and set OPENAI_API_KEY=sk-your-actual-key and TAVILY_API_KEY=tvly-your-key
 ```
@@ -154,7 +156,7 @@ Output is JSON (API), plain text (CLI default), or exported files (PDF/PPTX).
 ### Export layer
 
 - **PDF**: Full report content (query, summary, sections, confidence notes, sources) as a document.
-- **PPTX**: Presentation with title slide, summary slide, one slide per section, optional confidence slide, and sources slide.
+- **PPTX**: Presentation with title slide, then **one slide per point or bullet** for summary, each section, and confidence (no truncation); then one slide per source.
 - **PPTX (AI-designed)**: Optional `--ai-slides` / `export_to_pptx_ai`: an LLM (slide designer agent) turns the report into a deck spec with icons (emoji per slide), short bullets, layout hints, and optional charts; then we render it to .pptx. Suited to content that benefits from visuals (e.g. strength-of-evidence bar chart).
 
 **API:** run research and download a file:

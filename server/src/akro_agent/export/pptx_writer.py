@@ -84,12 +84,27 @@ def _add_accent_bar(slide, height: float = 0.08):
     bar.line.fill.background()  # no border
 
 
-def _content_to_paragraphs(text: str, max_chars: int = 550) -> list[str]:
-    """Split content into slide-friendly paragraphs (by double newline), truncate if needed."""
-    text = _truncate_for_slide(text, max_chars=max_chars)
-    raw = [p.strip() for p in text.split("\n\n") if p.strip()]
-    blocks = raw[:6]  # max 6 blocks per slide for readability
-    return blocks if blocks else [""]
+def _one_point_per_slide(text: str) -> list[str]:
+    """
+    Split content so each point or bullet gets its own slide. No truncation.
+    - Split by double newline (paragraphs); each paragraph is one slide.
+    - If a paragraph has multiple lines (bullet-like), split by newline so each line = one slide.
+    """
+    text = (text or "").strip()
+    if not text:
+        return [""]
+    points = []
+    for block in text.split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+        if len(lines) <= 1:
+            points.append(block)
+        else:
+            for line in lines:
+                points.append(line)
+    return points if points else [""]
 
 
 def write_pptx(report: ResearchReport, path: str | Path) -> None:
@@ -121,71 +136,72 @@ def write_pptx(report: ResearchReport, path: str | Path) -> None:
             para.font.color.rgb = RGBColor(0x94, 0xa3, 0xb8)  # light gray
             para.alignment = 1
 
-    # ----- Summary slide -----
-    slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
-    slide.shapes.title.text = "Summary"
-    _set_title_style(slide.shapes.title, font_size=24)
-    _add_accent_bar(slide)
-    tf = slide.placeholders[1].text_frame
-    blocks = _content_to_paragraphs(report.summary, 380)
-    for i, block in enumerate(blocks):
-        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.text = block
+    # ----- Summary: one slide per point (no truncation) -----
+    summary_points = _one_point_per_slide(report.summary)
+    for idx, point in enumerate(summary_points):
+        slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
+        slide.shapes.title.text = "Summary" if len(summary_points) == 1 else f"Summary ({idx + 1}/{len(summary_points)})"
+        _set_title_style(slide.shapes.title, font_size=24)
+        _add_accent_bar(slide)
+        tf = slide.placeholders[1].text_frame
+        p = tf.paragraphs[0]
+        p.text = point
         p.font.size = Pt(15)
         p.font.color.rgb = COLOR_BODY
         p.space_after = Pt(10)
         p.line_spacing = 1.2
-    _set_body_style(tf, font_size=15)
+        _set_body_style(tf, font_size=15)
 
-    # ----- Section slides -----
+    # ----- Section slides: one slide per point/bullet (no truncation) -----
     for sec in report.sections:
-        slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
         title = sec.get("title") or "Section"
         content = sec.get("content") or ""
-        slide.shapes.title.text = _truncate_for_slide(title, max_chars=75)
-        _set_title_style(slide.shapes.title, font_size=22)
-        _add_accent_bar(slide)
-        tf = slide.placeholders[1].text_frame
-        blocks = _content_to_paragraphs(content, 520)
-        for i, block in enumerate(blocks):
-            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = block
+        points = _one_point_per_slide(content)
+        for idx, point in enumerate(points):
+            slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
+            slide_title = title if len(points) == 1 else f"{title} ({idx + 1}/{len(points)})"
+            slide.shapes.title.text = slide_title[:75] if len(slide_title) > 75 else slide_title
+            _set_title_style(slide.shapes.title, font_size=22)
+            _add_accent_bar(slide)
+            tf = slide.placeholders[1].text_frame
+            p = tf.paragraphs[0]
+            p.text = point
             p.font.size = Pt(13)
             p.font.color.rgb = COLOR_BODY
             p.space_after = Pt(8)
             p.line_spacing = 1.15
-        _set_body_style(tf, font_size=13)
+            _set_body_style(tf, font_size=13)
 
-    # ----- Confidence notes -----
+    # ----- Confidence notes: one slide per point (no truncation) -----
     if report.confidence_notes:
-        slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
-        slide.shapes.title.text = "Confidence & limitations"
-        _set_title_style(slide.shapes.title, font_size=22)
-        _add_accent_bar(slide)
-        tf = slide.placeholders[1].text_frame
-        blocks = _content_to_paragraphs(report.confidence_notes, 380)
-        for i, block in enumerate(blocks):
-            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = block
+        conf_points = _one_point_per_slide(report.confidence_notes)
+        for idx, point in enumerate(conf_points):
+            slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
+            slide.shapes.title.text = "Confidence & limitations" if len(conf_points) == 1 else f"Confidence & limitations ({idx + 1}/{len(conf_points)})"
+            _set_title_style(slide.shapes.title, font_size=22)
+            _add_accent_bar(slide)
+            tf = slide.placeholders[1].text_frame
+            p = tf.paragraphs[0]
+            p.text = point
             p.font.size = Pt(13)
             p.font.color.rgb = COLOR_BODY
             p.space_after = Pt(8)
-        _set_body_style(tf, font_size=13)
+            _set_body_style(tf, font_size=13)
 
-    # ----- Sources slide -----
+    # ----- Sources: one slide per source (no truncation) -----
     if report.sources:
-        slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
-        slide.shapes.title.text = "Sources"
-        _set_title_style(slide.shapes.title, font_size=22)
-        _add_accent_bar(slide)
-        tf = slide.placeholders[1].text_frame
-        for i, src in enumerate(report.sources[:18]):
-            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = _truncate_for_slide(src, max_chars=100)
+        for idx, src in enumerate(report.sources):
+            slide = prs.slides.add_slide(prs.slide_layouts[SLIDE_LAYOUT_TITLE_AND_BODY])
+            slide.shapes.title.text = "Sources" if len(report.sources) == 1 else f"Sources ({idx + 1}/{len(report.sources)})"
+            _set_title_style(slide.shapes.title, font_size=22)
+            _add_accent_bar(slide)
+            tf = slide.placeholders[1].text_frame
+            p = tf.paragraphs[0]
+            p.text = src
             p.font.size = Pt(10)
             p.font.color.rgb = COLOR_SUBTITLE
-            p.space_after = Pt(3)
-        _set_body_style(tf, font_size=10)
+            p.word_wrap = True
+            _set_body_style(tf, font_size=10)
 
     prs.save(str(path))
 
@@ -256,7 +272,7 @@ def write_pptx_from_spec(spec: SlideDeckSpec, path: str | Path) -> None:
         tf = slide.placeholders[1].text_frame
         for i, bullet in enumerate(bullets[:5] if has_chart else bullets):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = f"• {_truncate_for_slide(bullet, max_chars=150)}"
+            p.text = f"• {bullet}"
             p.font.size = Pt(12) if has_chart else Pt(14)
             p.font.color.rgb = COLOR_BODY
             p.space_after = Pt(4) if has_chart else Pt(6)
