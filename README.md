@@ -1,6 +1,6 @@
 # Akro Agent
 
-**A multi-agent system that does deep research from a single query.** Submit a question, and Akro plans sub-questions, searches the web, enriches results with full-page content, synthesizes a structured research report, and optionally revises it with a critic—then delivers the report as text, PDF, and PowerPoint.
+**A multi-agent system that does deep research from a single query.** Submit a question, and Akro plans sub-questions, searches the web, enriches results with full-page content, synthesizes a structured research report, and optionally revises it with a critic—then delivers the report as text, PDF, and PowerPoint. Report generation typically takes around **3 to 5 minutes** due to the intensive research performed at each step.
 
 ---
 
