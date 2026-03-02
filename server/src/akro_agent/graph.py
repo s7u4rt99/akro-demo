@@ -13,7 +13,7 @@ from akro_agent.agents.critic import run_critic
 from akro_agent.models import ResearchPlan, ResearchReport, ResearchEvidence
 from akro_agent.fetch import enrich_evidence
 
-MAX_REVISIONS = 2
+MAX_REVISIONS = 1
 
 
 class ResearchState(TypedDict, total=False):
